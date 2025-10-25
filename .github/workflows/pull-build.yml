@@ -1,0 +1,102 @@
+name: Build Template from Silksong.Modding.Templates
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch of Silksong.Modding.Templates to build"
+        required: false
+        default: "main"
+
+env:
+  MOD_REPO_NAME: Silksong.BuiltTemplate
+
+jobs:
+  build-template:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # Needed to push to this repo
+
+    steps:
+      - name: Checkout Silksong.Modding.Templates
+        uses: actions/checkout@v4
+        with:
+          repository: silksong-modding/Silksong.Modding.Templates
+          ref: ${{ github.event.inputs.branch }}
+          path: templates
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build Template Project
+        working-directory: templates
+        run: dotnet build --configuration Debug
+
+      - name: Find .nupkg file
+        id: find_nupkg
+        working-directory: templates
+        run: |
+          NUPKG=$(find bin/Debug -name "*.nupkg" | head -n 1)
+          echo "Found package: $NUPKG"
+          echo "nupkg=$NUPKG" >> $GITHUB_OUTPUT
+
+      - name: Upload .nupkg as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: template-nupkg
+          path: templates/${{ steps.find_nupkg.outputs.nupkg }}
+
+      - name: Install Generated Template
+        working-directory: templates
+        run: |
+          dotnet new install ${{ steps.find_nupkg.outputs.nupkg }}
+
+      - name: Generate plugin from template
+        run: |
+          mkdir $MOD_REPO_NAME
+          cd $MOD_REPO_NAME
+          dotnet new silksongplugin --username MyGithubUsername
+
+      - name: Disable workflows in generated template
+        run: |
+          cd $MOD_REPO_NAME
+          if [ -d ".github" ]; then
+            mv .github .github[disabled]
+          fi
+
+      - name: Create LOG.md
+        run: |
+          cd $MOD_REPO_NAME
+          # Get branch name and commit SHA from the templates repo
+          TEMPLATE_BRANCH="${{ github.event.inputs.branch }}"
+          TEMPLATE_SHA=$(git --git-dir=../templates/.git rev-parse HEAD)
+          TEMPLATE_REPO="silksong-modding/Silksong.Modding.Templates"
+          
+          # Create BUILD_NOTES.md
+          echo "# Build Notes" >> BUILD_NOTES.md
+          echo "" >> BUILD_NOTES.md
+          echo "* Build generated from [${TEMPLATE_BRANCH}](https://github.com/${TEMPLATE_REPO}/tree/${TEMPLATE_SHA})." >> BUILD_NOTES.md
+          echo "* Build generated from with directory $MOD_REPO_NAME." >> BUILD_NOTES.md
+          echo "* The .github directory has been renamed to .github[disabled] to avoid confusing github; in the actual package it would be called .github." >> BUILD_NOTES.md
+          echo "* This file is not included in the final build." >> BUILD_NOTES.md
+
+      - name: Push to build branch (clean history)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Initialize a fresh repo with only the generated contents
+          cd $MOD_REPO_NAME
+          git init
+          git checkout -b build
+          git add .
+          git commit -m "Automated build from branch '${{ github.event.inputs.branch }}' of Silksong.Modding.Templates"
+
+          # Force-push as a brand new branch (single clean commit)
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" build
