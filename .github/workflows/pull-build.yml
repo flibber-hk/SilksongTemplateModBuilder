@@ -24,7 +24,7 @@ jobs:
         with:
           repository: silksong-modding/Silksong.Modding.Templates
           ref: ${{ github.event.inputs.branch }}
-          path: templates
+          path: templates/Silksong.Modding.Templates
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -37,9 +37,9 @@ jobs:
 
       - name: Find .nupkg file
         id: find_nupkg
-        working-directory: templates
+        working-directory: templates/Silksong.Modding.Templates
         run: |
-          NUPKG=$(find */bin/Debug -name "*.nupkg" | head -n 1)
+          NUPKG=$(find bin/Debug -name "*.nupkg" | head -n 1)
           echo "Found package: $NUPKG"
           echo "nupkg=$NUPKG" >> $GITHUB_OUTPUT
 
@@ -47,10 +47,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: template-nupkg
-          path: templates/${{ steps.find_nupkg.outputs.nupkg }}
+          path: templates/Silksong.Modding.Templates/${{ steps.find_nupkg.outputs.nupkg }}
 
       - name: Install Generated Template
-        working-directory: templates
+        working-directory: templates/Silksong.Modding.Templates
         run: |
           dotnet new install ${{ steps.find_nupkg.outputs.nupkg }}
 
