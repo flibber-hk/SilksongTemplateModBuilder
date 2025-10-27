@@ -39,7 +39,7 @@ jobs:
         id: find_nupkg
         working-directory: templates
         run: |
-          NUPKG=$(find bin/Debug -name "*.nupkg" | head -n 1)
+          NUPKG=$(find */bin/Debug -name "*.nupkg" | head -n 1)
           echo "Found package: $NUPKG"
           echo "nupkg=$NUPKG" >> $GITHUB_OUTPUT
 
