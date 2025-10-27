@@ -24,7 +24,7 @@ jobs:
         with:
           repository: silksong-modding/Silksong.Modding.Templates
           ref: ${{ github.event.inputs.branch }}
-          path: templates/Silksong.Modding.Templates
+          path: templates
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
